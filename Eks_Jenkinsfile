@@ -17,7 +17,7 @@ pipeline {
             }
             steps {
                 script {
-                    dir('sock_shop_project') {
+                    dir('sock_shop_eks_cluster') {
                         sh "terraform init"
                         sh "terraform apply -auto-approve"
 
@@ -38,7 +38,7 @@ pipeline {
             }
             steps {
                 script {
-                    dir('sock_shop_project') {
+                    dir('sock_shop_eks_cluster') {
                         sh "terraform destroy --auto-approve"
                     }
                 }
