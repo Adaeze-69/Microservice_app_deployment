@@ -19,7 +19,7 @@ pipeline {
                 script {
                     dir('sock_shop_eks_cluster') {
                         sh "terraform init"
-                        sh "terraform apply -auto-approve"
+                        sh "terraform apply --auto-approve"
 
                         // Capture and print Terraform outputs
                         def clusterName = sh(script: "terraform output -raw cluster_name", returnStdout: true).trim()
