@@ -35,17 +35,17 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./terraform
+        working-directory: ./sock_shop_eks_cluster 
 
       - name: Terraform Plan
         id: plan
         run: terraform plan
-        working-directory: ./terraform
+        working-directory: ./sock_shop_eks_cluster
 
       - name: Terraform Apply
         id: apply
         run: terraform apply --auto-approve
-        working-directory: ./terraform
+        working-directory: ./sock_shop_eks_cluster
 
       - name: AWS EKS with Kubectl
         uses: giovannirossini/aws-eks@v1.0.1
