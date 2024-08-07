@@ -22,29 +22,34 @@ jobs:
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Install kubectl
+        uses: actions/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Set up Helm
         run: |
-          sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+          sudo apt-get install apt-transport-https --yes
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+          sudo apt-get update
+          sudo apt-get install helm
 
       - name: Install Terraform CLI
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./sock_shop_eks_cluster 
+        working-directory: ./sock_shop_eks_cluster
 
       - name: Terraform Plan
-        id: plan
-        run: terraform plan
+        run: terraform plan -var "cluster_name=ada-eks-${{ github.run_id }}"
         working-directory: ./sock_shop_eks_cluster
 
       - name: Terraform Apply
-        id: apply
-        run: terraform apply --auto-approve
+        run: terraform apply --auto-approve -var "cluster_name=ada-eks-${{ github.run_id }}"
         working-directory: ./sock_shop_eks_cluster
 
       - name: AWS EKS with Kubectl
@@ -53,6 +58,43 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: "us-east-1"
-          cluster-name: "ada-eks-SmyrX"
-          command: |
-            kubectl apply -f k8s/sock_shop.yaml
+          cluster-name: "ada-eks-${{ github.run_id }}"
+
+      - name: Deploy nginx Ingress
+        run: |
+          kubectl create ns ingress-nginx
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm install nginx ingress-nginx/ingress-nginx -n ingress-nginx
+          chmod +x get_cluster_ip.sh
+          ./get_cluster_ip.sh
+          kubectl get deploy -n ingress-nginx
+          kubectl get svc -n ingress-nginx
+        working-directory: ./k8s
+
+      - name: Configure DNS
+        run: |
+          terraform init
+          terraform apply --auto-approve
+        working-directory: ./k8s
+
+      - name: Deploy the socks shop application
+        run: |
+          kubectl apply -f sock_shop.yaml
+          kubectl get pods -n sock_shop
+          kubectl get svc -n sock_shop
+        working-directory: ./k8s
+
+      - name: Deploy the front-end application
+        run: |
+          kubectl create namespace cert-manager
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+          kubectl get pods --namespace cert-manager
+          kubectl apply --namespace sock-shop -f cluster.yaml
+          kubectl apply -f ingress.yaml
+          kubectl get services -n sock-shop
+        working-directory: ./k8s
+
+      - name: Deploy Prometheus and Grafana Manifests
+        run: |
+          kubectl apply -f prometheus&grafana_monitoring/
+        working-directory: ./prometheus&grafana_monitoring
