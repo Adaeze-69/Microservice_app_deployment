@@ -25,10 +25,10 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Install kubectl
-        uses: actions/setup-kubectl@v3
-        with:
-          version: 'latest'
-
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      
       - name: Set up Helm
         run: |
           curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
@@ -42,7 +42,7 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./sock_shop_eks_cluster
+        working-directory: ./sock_shop_eks_cluster 
 
       - name: Terraform Plan
         run: terraform plan -var "cluster_name=ada-eks-${{ github.run_id }}"
@@ -53,13 +53,9 @@ jobs:
         working-directory: ./sock_shop_eks_cluster
 
       - name: AWS EKS with Kubectl
-        uses: giovannirossini/aws-eks@v1.0.1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: "us-east-1"
-          cluster-name: "ada-eks-${{ github.run_id }}"
-
+        run: |
+          aws eks update-kubeconfig --name ada-eks-${{ github.run_id }} --region us-east-1
+          
       - name: Deploy nginx Ingress
         run: |
           kubectl create ns ingress-nginx
