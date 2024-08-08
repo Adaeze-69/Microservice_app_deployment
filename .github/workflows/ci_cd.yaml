@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  DEPLOY_COUNT: ${{ secrets.DEPLOY_COUNT }}
+
 jobs:
   terraform:
     name: Terraform
@@ -84,7 +87,9 @@ jobs:
         run: |
           kubectl create namespace cert-manager
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
-          kubectl get pods --namespace cert-manager
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager-cainjector
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager-webhook
           kubectl apply --namespace sock-shop -f cluster.yaml
           kubectl apply -f ingress.yaml
           kubectl get services -n sock-shop
@@ -94,3 +99,15 @@ jobs:
         run: |
           kubectl apply -f prometheus&grafana_monitoring/
         working-directory: ./prometheus&grafana_monitoring
+
+      - name: Increment Deploy Count
+        run: |
+          new_count=$((DEPLOY_COUNT + 1))
+          echo "new_count=$new_count" >> $GITHUB_ENV
+          gh secret set DEPLOY_COUNT -b $new_count
+
+      - name: Check Deploy Count and Destroy if Necessary
+        if: env.DEPLOY_COUNT == '2'
+        run: |
+          terraform destroy --auto-approve -var "cluster_name=ada-eks-${{ github.run_id }}"
+        working-directory: ./sock_shop_eks_cluster
