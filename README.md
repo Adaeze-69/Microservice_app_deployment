@@ -1,4 +1,4 @@
-# Deployment of a Microservice App (Socks Shop) on Kubernetes using Infrastructure as a Code(terraform) and CI/CD Pipeline(Jenkins)
+# Deployment of a Microservice App (Socks Shop) on AWS EKS using Infrastructure as a Code(terraform) and CI/CD Pipeline(GitHub Actions)
 
 ## Microservice Architecture
 
